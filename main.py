@@ -1,7 +1,11 @@
-# This is a sample Python script.
+def is_prime(num):
+    if num > 1:
+        for i in range(2, num):
+            if num % i == 0:
+                return False
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+    return True
+
 
 def fast_exp(a, z, n):
     a1 = a
@@ -20,7 +24,7 @@ def fast_exp(a, z, n):
 
 def are_relatively_prime(a, b):
     for i in range(2, min(a, b) + 1):
-        if a & i == b % i == 0:
+        if (a % i == 0) and (b % i == 0):
             return False
     return True
 
@@ -41,18 +45,45 @@ def euclide(a, b):
     return x1, y1, d1
 
 
-def create_key_pair():
-    p = int(input("Enter p value: "))
-    q = int(input("Enter q value: "))
-    r = p * q
-    x = (p - 1) * (q - 1)
-    for e in range(3, x, 2):
-        if are_relatively_prime(e, x):
-            break
+def need_more_size(msg, r):
+    alphabet_start = ord(' ')
+    for m in msg:
+        if ord(m) - alphabet_start >= r:
+            print("Message requires key longer")
+            return True
 
-    # for d in range(3, x, 2):
-    #     if d * e % x == 1:
-    #         break
+    return False
+
+
+def get_pq():
+    p = q = 0
+    while p == q:
+        p = int(input("Enter p value: "))
+        while not is_prime(p):
+            print("p must be prime")
+            p = int(input("Enter p value: "))
+
+        q = int(input("Enter q value: "))
+        while not is_prime(q):
+            print("p must be prime")
+            q = int(input("Enter q value: "))
+
+    return p, q
+
+
+def create_key_pair(msg):
+    p, q = get_pq()
+    r = p * q
+    while need_more_size(msg, r):
+        p, q = get_pq()
+        r = p * q
+
+    x = (p - 1) * (q - 1)
+    e = 2
+    for i in range(3, x, 2):
+        if are_relatively_prime(i, x):
+            e = i
+            break
 
     temp_x, d, nod = euclide(x, e)
     if d < 0:
@@ -61,29 +92,53 @@ def create_key_pair():
     return (e, r), (d, r)
 
 
-def encrypt(key, message):
-    encrypted_message = ""
-    for m in message:
-        encrypted_message += chr(pow(ord(m) - ord('A'), key[0], key[1])
-                                 + ord('A'))
+# def encrypt(key, message):
+#     encrypted_message = ""
+#     for m in message:
+#         encrypted_message += chr(pow(ord(m) - ord('A'), key[0], key[1])
+#                                  + ord('A'))
+#
+#     return encrypted_message
 
-    return encrypted_message
+
+# def decrypt(key, text):
+#     original_message = ""
+#     for m in text:
+#         original_message += chr(pow(ord(m) - ord('A'), key[0], key[1])
+#                                 + ord('A'))
+#
+#     return original_message
+
+
+def encrypt(key, message):
+    encrypted_list = []
+    encrypted_message = ""
+    alphabet_start = ord(' ')
+    for m in message:
+        c = fast_exp(ord(m) - alphabet_start, key[0], key[1])
+        encrypted_list.append(c)
+        encrypted_message += chr(c + alphabet_start)
+
+    return encrypted_list, encrypted_message
 
 
 def decrypt(key, text):
+    original_list = []
     original_message = ""
-    for m in text:
-        original_message += chr(pow(ord(m) - ord('A'), key[0], key[1])
-                                + ord('A'))
+    alphabet_start = ord(' ')
+    for c in text:
+        m = fast_exp(c, key[0], key[1]) + alphabet_start
+        original_list.append(m)
+        original_message += chr(m)
 
-    return original_message
+    return original_list, original_message
 
 
 # Main Prog
 
-public_key, private_key = create_key_pair()
 msg = input("Enter the message: ")
-encrypted_msg = encrypt(public_key, msg)
+public_key, private_key = create_key_pair(msg)
+encrypted_lst, encrypted_msg = encrypt(public_key, msg)
 print(encrypted_msg)
-original_msg = decrypt(private_key, encrypted_msg)
+original_lst, original_msg = decrypt(private_key, encrypted_lst)
 print(original_msg)

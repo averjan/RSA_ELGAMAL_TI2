@@ -2,6 +2,30 @@ import math
 import random
 
 
+def is_prime(num):
+    if num > 1:
+        for i in range(2, num):
+            if num % i == 0:
+                return False
+
+    return True
+
+
+def fast_exp(a, z, n):
+    a1 = a
+    z1 = z
+    x = 1
+    while z1 != 0:
+        while z1 % 2 == 0:
+            z1 //= 2
+            a1 = (a1 * a1) % n
+
+        z1 -= 1
+        x = (x * a1) % n
+
+    return x
+
+
 class PublicKey:
     def __init__(self, p, g, y):
         self.p = p
@@ -10,14 +34,14 @@ class PublicKey:
 
 
 class PrivateKey:
-    def __init__(self, p, x):
+    def __init__(self, x, p):
         self.p = p
         self.x = x
 
 
 def are_relatively_prime(a, b):
     for i in range(2, min(a, b) + 1):
-        if a & i == b % i == 0:
+        if (a % i == 0) and (b % i == 0):
             return False
     return True
 
@@ -42,84 +66,75 @@ def prime_factors(n):
 def find_primitive_root(p, primes):
     g = random.randint(2, p - 1)
     for i in primes:
-        if pow(g, (p - 1) / i) % p == 1:
+        if fast_exp(g, (p - 1) / i, p) == 1:
             return find_primitive_root(p, primes)
 
     return g
 
 
-def create_key_pair():
+def need_more_size(msg, r):
+    alphabet_start = ord(' ')
+    for m in msg:
+        if ord(m) - alphabet_start >= r:
+            print("Message requires key longer")
+            return True
+
+    return False
+
+
+def get_p():
     p = int(input("Enter the p value: "))
-    primes = prime_factors(p)
+    while not is_prime(p):
+        p = int(input("Enter the p value: "))
+
+    return p
+
+
+def create_key_pair(msg):
+    p = get_p()
+    while need_more_size(msg, p):
+        p = get_p()
+
+    primes = prime_factors(p - 1)
     g = find_primitive_root(p, primes)
     x = random.randrange(p - 1)
-    y = pow(g, x, p)
+    y = fast_exp(g, x, p)
     return PublicKey(p, g, y), PrivateKey(x, p)
 
 
 def encrypt(key, message):
-    k = random.randrange(2, key.p - 1)
-    while not are_relatively_prime(key.p - 1, k):
-        k = random.randrange(2, key.p - 1)
-
-    encrypt_message = []
+    alphabet_start = ord(' ')
+    encrypt_list = []
+    encrypt_message = ""
     for m in message:
         k = random.randrange(2, key.p - 1)
         while not are_relatively_prime(key.p - 1, k):
             k = random.randrange(2, key.p - 1)
 
-        a = pow(key.g, k, key.p)
-        b = (pow(key.y, k) * (ord(m) - ord('A'))) % key.p
-        encrypt_message.extend([a, b])
+        a = fast_exp(key.g, k, key.p)
+        b = (pow(key.y, k) * (ord(m) - alphabet_start)) % key.p
+        encrypt_list.extend([a, b])
+        encrypt_message += chr(a + alphabet_start) + chr(b + alphabet_start)
 
-    return encrypt_message
-
-
-def decrypt(key, cipher):
-    # decrpyts each pair and adds the decrypted integer to list of plaintext integers
-    plaintext = []
-
-    # cipherArray = cipher.split()
-    if not len(cipher) % 2 == 0:
-        return "Malformed Cipher Text"
-    for i in range(0, len(cipher), 2):
-        # c = first number in pair
-        a = int(cipher[i])
-        # d = second number in pair
-        b = int(cipher[i + 1])
-
-        # s = c^x mod p
-        s = pow(a, key.x, key.p)
-        # plaintext integer = ds^-1 mod p
-        plain = (b * pow(s, key.p - 2, key.p)) % key.p
-        # add plain to list of plaintext integers
-        plaintext.append(plain)
-
-    # decryptedText = decode(plaintext, key.iNumBits)
-    decrypted_text = ""
-    for m in plaintext:
-        decrypted_text += chr(m + ord('A'))
-
-    # remove trailing null bytes
-    decrypted_text = "".join([ch for ch in decrypted_text if ch != '\x00'])
-
-    return decrypted_text
+    return encrypt_list, encrypt_message
 
 
-def decrypt2(key, message, p):
-    original_message = ""
+def decrypt(key, message):
+    original = ""
     it = iter(message)
+    phi = key.p - 2
     for a in it:
-        original_message += chr(((next(it) * pow(a, - key)) % p) + ord('A'))
+        b = next(it)
+        original += chr(((b * pow(a, key.x * phi)) % key.p) + ord(' '))
 
-    return original_message
+    return original
 
 
 # Main Prog
 
 msg = input("Enter the message: ")
-public_key, private_key = create_key_pair()
-encrypted_message = encrypt(public_key, msg)
-print(encrypted_message, sep=" ")
-original_message = decrypt(private_key, encrypted_message)
+public_key, private_key = create_key_pair(msg)
+encrypted, encrypted_message = encrypt(public_key, msg)
+print(encrypted_message)
+original_message = decrypt(private_key, encrypted)
 print(original_message)
